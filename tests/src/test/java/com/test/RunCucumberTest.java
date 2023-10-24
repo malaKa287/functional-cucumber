@@ -7,12 +7,19 @@ import org.junit.platform.suite.api.ConfigurationParameter;
 import org.junit.platform.suite.api.IncludeEngines;
 import org.junit.platform.suite.api.SelectClasspathResource;
 import org.junit.platform.suite.api.Suite;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import com.bdd.config.AppConfig;
+
+import io.cucumber.spring.CucumberContextConfiguration;
 
 @Suite
 @IncludeEngines("cucumber")
 @SelectClasspathResource("features")
-@ConfigurationParameter(key = PLUGIN_PROPERTY_NAME, value = "pretty")
-@ConfigurationParameter(key = GLUE_PROPERTY_NAME, value = "com.bdd")
+@CucumberContextConfiguration
+@SpringBootTest(classes = AppConfig.class)
+@ConfigurationParameter(key = PLUGIN_PROPERTY_NAME, value = "pretty,html:target/site/cucumber-pretty.html")
+@ConfigurationParameter(key = GLUE_PROPERTY_NAME, value = "com.bdd,com.test")
 public class RunCucumberTest {
 }
 
