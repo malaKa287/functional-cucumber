@@ -5,5 +5,5 @@ import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootConfiguration
 @ComponentScan("com.bdd")
-public class AppConfig {
+public class StepsContextConfiguration {
 }

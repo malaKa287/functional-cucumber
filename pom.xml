@@ -18,10 +18,14 @@
 		<slf4j.version>2.0.9</slf4j.version>
 		<cucumber.version>7.13.0</cucumber.version>
 
+		<testcontainers.version>1.19.1</testcontainers.version>
+
 		<junit-platform-suite.version>1.10.0-RC2</junit-platform-suite.version>
 		<junit-platform-launcher.version>1.9.3</junit-platform-launcher.version>
 		<junit-jupiter.version>5.9.3</junit-jupiter.version>
 		<assertj.version>3.24.2</assertj.version>
+		<dbunit.version>2.7.3</dbunit.version>
+		<awaitility.version>4.2.0</awaitility.version>
 
 		<maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
 		<maven-surefire-plugin.version>3.1.0</maven-surefire-plugin.version>

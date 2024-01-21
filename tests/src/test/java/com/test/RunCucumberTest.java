@@ -9,7 +9,8 @@ import org.junit.platform.suite.api.SelectClasspathResource;
 import org.junit.platform.suite.api.Suite;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import com.bdd.config.AppConfig;
+import com.bdd.config.StepsContextConfiguration;
+import com.test.config.TestsContextConfiguration;
 
 import io.cucumber.spring.CucumberContextConfiguration;
 
@@ -17,7 +18,7 @@ import io.cucumber.spring.CucumberContextConfiguration;
 @IncludeEngines("cucumber")
 @SelectClasspathResource("features")
 @CucumberContextConfiguration
-@SpringBootTest(classes = AppConfig.class)
+@SpringBootTest(classes = {StepsContextConfiguration.class, TestsContextConfiguration.class})
 @ConfigurationParameter(key = PLUGIN_PROPERTY_NAME, value = "pretty,html:target/site/cucumber-pretty.html")
 @ConfigurationParameter(key = GLUE_PROPERTY_NAME, value = "com.bdd,com.test")
 public class RunCucumberTest {
