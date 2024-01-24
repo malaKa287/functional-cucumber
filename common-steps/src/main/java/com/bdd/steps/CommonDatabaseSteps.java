@@ -1,26 +1,29 @@
 package com.bdd.steps;
 
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.awaitility.Awaitility;
+import org.assertj.core.api.Assertions;
 import org.dbunit.Assertion;
+import org.dbunit.DatabaseUnitException;
 import org.dbunit.dataset.Column;
+import org.dbunit.dataset.DefaultTable;
 import org.dbunit.dataset.SortedTable;
 
 import com.bdd.database.connection.DatabaseConnectionProvider;
+import com.bdd.database.mapper.DatabaseTableConverter;
 import com.bdd.database.schema.DatabaseSchema;
 import com.bdd.database.schema.table.CleanupStrategyType;
 import com.bdd.database.schema.table.DefaultTableStructure;
 import com.bdd.database.schema.table.TableIdentifier;
 import com.bdd.database.schema.table.TableStructure;
-import com.bdd.database.service.DbService;
+import com.bdd.database.service.DatabaseService;
 import com.bdd.database.validator.DbValidator;
 import com.bdd.wildcard.WildcardService;
 
@@ -28,6 +31,7 @@ import io.cucumber.datatable.DataTable;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
+import io.cucumber.java.en.When;
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -38,23 +42,21 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class CommonDatabaseSteps {
 
-	public static final Duration ASSERT_TIMEOUT = Duration.of(5, ChronoUnit.SECONDS);
-	public static final Duration ASSERT_POLL_INTERVAL = Duration.of(100, ChronoUnit.MILLIS);
-
 	private final DatabaseConnectionProvider databaseConnectionProvider;
-	private final DbService dbService;
+	private final DatabaseService databaseService;
 	private final WildcardService wildcardService;
 	private final DbValidator dbValidator;
+	private final DatabaseTableConverter tableConverter;
 
 	private List<TableIdentifier> tablesToCleanup;
 
 	@PostConstruct
 	public void init() {
-		tablesToCleanup = dbService.getSchemas().stream()
+		tablesToCleanup = databaseService.getSchemas().stream()
 				.map(DatabaseSchema::getTablesStructures)
 				.flatMap(Collection::stream)
 				.filter(dbTableStructure -> dbTableStructure.getCleanupStrategyType() == CleanupStrategyType.SCENARIO)
-				.map(dbService::deletionCascade)
+				.map(databaseService::deletionCascade)
 				.flatMap(Collection::stream)
 				.toList();
 	}
@@ -62,18 +64,27 @@ public class CommonDatabaseSteps {
 	@Before
 	public void before() {
 		var databaseConnection = databaseConnectionProvider.getConnection();
-		tablesToCleanup.forEach(tableIdentifier -> dbService.deleteAll(tableIdentifier, databaseConnection));
+		tablesToCleanup.forEach(tableIdentifier -> databaseService.deleteAll(tableIdentifier, databaseConnection));
+	}
+
+	@Given("clear table {word}")
+	public void clearTable(String tableName) {
+		var schema = databaseService.getSchemaBy(tableName);
+		var tableIdentifier = tableIdentifier(tableName, schema.getSchemaName());
+		var databaseConnection = databaseConnectionProvider.getConnection();
+
+		databaseService.deleteAll(tableIdentifier, databaseConnection);
 	}
 
 	@Given("table {word} contains")
-	public void setting_up_content_of_table(String tableName, DataTable dataTable) {
-		var dbSchema = dbService.getSchemaBy(tableName);
-		setting_up_content_of_table(tableName, dbSchema.getSchemaName(), dataTable);
+	public void populateTable(String tableName, DataTable dataTable) {
+		var dbSchema = databaseService.getSchemaBy(tableName);
+		populateTable(tableName, dbSchema.getSchemaName(), dataTable);
 	}
 
 	@Given("table {word} of schema {word} contains")
-	public void setting_up_content_of_table(String tableName, String schemaName, DataTable dataTable) {
-		var schema = dbService.getSchemaBy(tableName);
+	public void populateTable(String tableName, String schemaName, DataTable dataTable) {
+		var schema = databaseService.getSchemaBy(tableName);
 		var tableStructure = getTableStructure(tableName, schema);
 
 		var dbColumnNames = getDbColumnNames(tableStructure.getColumns());
@@ -85,12 +96,34 @@ public class CommonDatabaseSteps {
 		var databaseConnection = databaseConnectionProvider.getConnection();
 		var tableIdentifier = tableIdentifier(tableName, schemaName);
 
-		dbService.insert(tableIdentifier, databaseConnection, resolvedDataTable);
+		databaseService.insert(tableIdentifier, databaseConnection, resolvedDataTable);
+	}
+
+	@When("insert into table {word}")
+	public void insertToTable(String tableName, DataTable dataTable) {
+		var schema = databaseService.getSchemaBy(tableName);
+		var tableIdentifier = tableIdentifier(tableName, schema.getSchemaName());
+		var databaseConnection = databaseConnectionProvider.getConnection();
+		var resolvedDataTable = wildcardService.replaceWildcards(dataTable);
+
+		databaseService.insert(tableIdentifier, databaseConnection, resolvedDataTable);
+	}
+
+	@Then("verify table {word} is empty")
+	public void verifyTableIsEmpty(String tableName) throws DatabaseUnitException {
+		var schema = databaseService.getSchemaBy(tableName);
+		var tableIdentifier = tableIdentifier(tableName, schema.getSchemaName());
+		var databaseConnection = databaseConnectionProvider.getConnection();
+
+		var currentTable = databaseService.findAll(tableIdentifier, databaseConnection);
+		var expectedTable = new DefaultTable(tableName); // empty table
+
+		Assertion.assertEquals(expectedTable, currentTable);
 	}
 
 	@Then("verify table {word} contains")
-	public void verify_db_contains_data_table(String tableName, DataTable dataTable) {
-		var schema = dbService.getSchemaBy(tableName);
+	public void verifyDbTableContains(String tableName, DataTable dataTable) throws DatabaseUnitException {
+		var schema = databaseService.getSchemaBy(tableName);
 		var tableStructure = getTableStructure(tableName, schema);
 		var dbColumnNames = getDbColumnNames(tableStructure.getColumns());
 		var expectedColumnNames = new HashSet<>(dataTable.row(0));
@@ -102,18 +135,52 @@ public class CommonDatabaseSteps {
 		var ignoredColumnNames = getIgnoredColumnNames(tableStructure, expectedColumnNames);
 		var resolvedDataTable = wildcardService.replaceWildcards(dataTable);
 
-		Awaitility.await().atMost(ASSERT_TIMEOUT)
-				.pollInterval(ASSERT_POLL_INTERVAL)
-				.untilAsserted(() -> {
-					var actualTable = dbService.fetchData(tableIdentifier, databaseConnectionProvider.getConnection());
-					var actualSorted = new SortedTable(actualTable, expectedColumns, true);
+		var expectedTable = DefaultTableStructure.fromDataTable(tableStructure, resolvedDataTable).getTable(tableName);
+		var expectedSorted = new SortedTable(expectedTable, expectedColumns, true);
 
-					var expectedTable = DefaultTableStructure.fromDataTable(tableStructure, resolvedDataTable)
-							.getTable(tableName);
-					var expectedSorted = new SortedTable(expectedTable, expectedColumns, true);
+		var currentTable = databaseService.findAll(tableIdentifier, databaseConnectionProvider.getConnection());
+		var currentSorted = new SortedTable(currentTable, expectedColumns, true);
 
-					Assertion.assertEqualsIgnoreCols(expectedSorted, actualSorted, ignoredColumnNames);
-				});
+		Assertion.assertEqualsIgnoreCols(expectedSorted, currentSorted, ignoredColumnNames);
+	}
+
+	@Then("verify table {word} contains at least")
+	public void verifyDbTableContainsAtLeast(String tableName, DataTable dataTable) {
+		var schema = databaseService.getSchemaBy(tableName);
+		var tableIdentifier = tableIdentifier(tableName, schema.getSchemaName());
+		var currentContent = databaseService.findAll(tableIdentifier, databaseConnectionProvider.getConnection());
+
+		var expectedColumnNames = new HashSet<>(dataTable.row(0));
+		var tableStructure = getTableStructure(tableName, schema);
+		var ignoredColumnNames = getIgnoredColumnNames(tableStructure, expectedColumnNames);
+
+		var currentRows = tableConverter.asRowsMaps(currentContent);
+		var expectedRows = wildcardService.replaceWildcards(dataTable).entries();
+		var matchedRows = findEqualsRows(currentRows, expectedRows, ignoredColumnNames);
+
+		Assertions.assertThat(matchedRows.size())
+				.withFailMessage("Expected [%s] matched rows but was [%s]. Can't find: [%s].",
+						expectedRows.size(), matchedRows.size(), retainNotMatched(expectedRows, currentRows))
+				.isEqualTo(expectedRows.size());
+	}
+
+	@Then("verify table {word} contains ignore columns")
+	public void verifyDbTableContainsIgnoreColumns(String tableName, DataTable dataTable) {
+		var schema = databaseService.getSchemaBy(tableName);
+		var tableIdentifier = tableIdentifier(tableName, schema.getSchemaName());
+		var currentContent = databaseService.findAll(tableIdentifier, databaseConnectionProvider.getConnection());
+
+		var currentRows = tableConverter.asRowsMaps(currentContent);
+		var expectedRows = wildcardService.replaceWildcards(dataTable);
+
+		var expectedColumnNames = new HashSet<>(dataTable.row(0));
+		var tableStructure = getTableStructure(tableName, schema);
+		var ignoredColumnNames = getIgnoredColumnNames(tableStructure, expectedColumnNames);
+
+		expectedRows.entries().forEach(expectedRow ->
+				Assertions.assertThat(containsIgnoreColumns(currentRows, expectedRow, ignoredColumnNames))
+						.withFailMessage("Can't find row: " + expectedRow)
+						.isTrue());
 	}
 
 	private TableIdentifier tableIdentifier(String tableName, String schemaName) {
@@ -143,5 +210,41 @@ public class CommonDatabaseSteps {
 		return Arrays.stream(tableStructure.getColumns())
 				.filter(column -> expectedColumnNames.contains(column.getColumnName()))
 				.toArray(Column[]::new);
+	}
+
+	private List<Map<String, String>> findEqualsRows(List<Map<String, String>> currentTable, List<Map<String, String>> expectedTable,
+			String[] ignoredColumns) {
+		return expectedTable.stream()
+				.filter(expectedRow -> containsIgnoreColumns(currentTable, expectedRow, ignoredColumns))
+				.toList();
+	}
+
+	private boolean containsIgnoreColumns(List<Map<String, String>> currentTable, Map<String, String> expectedRow,
+			String[] ignoredColumns) {
+		return currentTable.stream()
+				.anyMatch(currentRow -> isEqualsIgnoreColumns(currentRow, expectedRow, ignoredColumns));
+	}
+
+	private boolean isEqualsIgnoreColumns(Map<String, String> currentRow, Map<String, String> expectedRow, String[] ignoredColumns) {
+		return currentRow.entrySet().stream()
+				.allMatch(row -> containsIgnoreKey(row.getKey(), ignoredColumns)
+						|| matchRowValues(row.getValue(), expectedRow.get(row.getKey())));
+	}
+
+	private boolean matchRowValues(String currentValue, String expectedValue) {
+		return Optional.ofNullable(currentValue)
+				.map(value -> value.equals(expectedValue))
+				.orElseGet(() -> expectedValue == null);
+	}
+
+	private boolean containsIgnoreKey(String key, String[] ignoredKeys) {
+		return Arrays.asList(ignoredKeys).contains(key);
+	}
+
+	private List<Map<String, String>> retainNotMatched(List<Map<String, String>> expected, List<Map<String, String>> current) {
+		return expected.stream()
+				.filter(row -> !current.contains(row))
+				.distinct()
+				.toList();
 	}
 }

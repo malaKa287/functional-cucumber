@@ -31,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class DbService {
+public class DatabaseService {
 
 	private final DatabaseSchemaInitializer databaseSchemaInitializer;
 	private final DatabaseOperationsExecutor operationsExecutor;
@@ -67,7 +67,7 @@ public class DbService {
 		execute(DatabaseOperation.INSERT, connection, dataSet);
 	}
 
-	public ITable fetchData(TableIdentifier tableIdentifier, IDatabaseConnection connection) {
+	public ITable findAll(TableIdentifier tableIdentifier, IDatabaseConnection connection) {
 		try {
 			return connection.createTable(tableIdentifier.tableName());
 		}

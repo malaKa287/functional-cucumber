@@ -13,7 +13,7 @@ public class DatabaseOperationsExecutor {
 			operation.execute(connection, data);
 		}
 		catch (Exception e) {
-			throw new IllegalArgumentException(String.format("Can't execute [%s].", operation.getClass().getSimpleName()), e);
+			throw new IllegalArgumentException("Can't execute: " + operation.getClass().getSimpleName(), e);
 		}
 	}
 }
