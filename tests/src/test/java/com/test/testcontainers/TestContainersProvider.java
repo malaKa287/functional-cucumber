@@ -3,7 +3,7 @@ package com.test.testcontainers;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-public class ContainerProvider {
+public class TestContainersProvider {
 
 	private static PostgreSQLContainer<?> POSTGRES_CONTAINER;
 

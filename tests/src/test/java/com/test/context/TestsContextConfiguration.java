@@ -1,4 +1,4 @@
-package com.test.config;
+package com.test.context;
 
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.context.annotation.ComponentScan;

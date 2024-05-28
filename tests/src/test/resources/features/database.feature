@@ -18,7 +18,7 @@ Feature: verify database steps
       | 2  | Constantine  |           |
 
 
-  Scenario: should insert into table
+  Scenario: should insert into the table
     Given table TEST_USERS contains
       | ID | FIRST_NAME | LAST_NAME |
       | 1  | John       | Doe       |
@@ -35,7 +35,7 @@ Feature: verify database steps
       | 4  | Leon       | Noel      |
 
 
-  Scenario: should clear table
+  Scenario: should clear the table
     Given table TEST_USERS contains
       | ID | FIRST_NAME  | LAST_NAME |
       | 1  | John        | Doe       |
@@ -59,7 +59,7 @@ Feature: verify database steps
       | 3  | Constantine |             |
 
 
-  Scenario: should verify that table contains rows by few columns
+  Scenario: should verify that table contains rows by a few columns
     Given table TEST_USERS contains
       | ID | FIRST_NAME  | LAST_NAME |
       | 4  | John        | Doe       |
@@ -71,10 +71,14 @@ Feature: verify database steps
       | 1  | Leon         |
       | 4  | ${firstName} |
 
+
   Scenario: should update rows
 
 
   Scenario: should update row using one column
+#    update test_users
+#    set row.getKey() = row.getValue() -> if another column add and ...
+#    where id = idValue
 
 
   Scenario: should populate table with provided data

@@ -1,4 +1,4 @@
-package com.bdd.config;
+package com.bdd.context;
 
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.context.annotation.ComponentScan;

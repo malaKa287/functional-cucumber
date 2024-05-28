@@ -1,20 +1,18 @@
 package com.bdd.database.schema.table;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
 import org.dbunit.dataset.Column;
-import org.dbunit.dataset.DefaultDataSet;
-import org.dbunit.dataset.IDataSet;
 
-import io.cucumber.datatable.DataTable;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
+@Getter
 public class DefaultTableStructure implements TableStructure {
 
 	private final TableIdentifier tableIdentifier;
@@ -47,23 +45,8 @@ public class DefaultTableStructure implements TableStructure {
 	}
 
 	@Override
-	public TableIdentifier getTableIdentifier() {
-		return tableIdentifier;
-	}
-
-	@Override
-	public Collection<ForeignKey> getForeignKeys() {
-		return foreignKeys;
-	}
-
-	@Override
-	public CleanupStrategyType getCleanupStrategyType() {
-		return cleanupStrategyType;
-	}
-
-	@Override
-	public ConstraintActionType getConstraintActionType() {
-		return constraintActionType;
+	public void registerForeignKeyConstraint(String sourceColumnName, ColumnIdentifier dependantColumnIdentifier) {
+		this.getForeignKeys().add(new ForeignKey(new ColumnIdentifier(this, sourceColumnName), dependantColumnIdentifier));
 	}
 
 	@Override
@@ -83,15 +66,4 @@ public class DefaultTableStructure implements TableStructure {
 		return columnNameToIndex.get(columnName.toUpperCase());
 	}
 
-	public static IDataSet fromDataTable(TableStructure tableStructure, DataTable dataTable) {
-		var dataTableList = dataTable.entries();
-		try {
-			return new DefaultDataSet(new AbstractTableWrapper(tableStructure, dataTableList));
-		}
-		catch (Exception e) {
-			var identifier = tableStructure.getTableIdentifier();
-			throw new IllegalStateException(String.format("Can't convert provided dataTable to [%s.%s] IDataSet.",
-					identifier.schemaName(), identifier.tableName()), e);
-		}
-	}
 }

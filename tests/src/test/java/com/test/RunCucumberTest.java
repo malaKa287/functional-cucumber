@@ -9,8 +9,8 @@ import org.junit.platform.suite.api.SelectClasspathResource;
 import org.junit.platform.suite.api.Suite;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import com.bdd.config.StepsContextConfiguration;
-import com.test.config.TestsContextConfiguration;
+import com.bdd.context.StepsContextConfiguration;
+import com.test.context.TestsContextConfiguration;
 
 import io.cucumber.spring.CucumberContextConfiguration;
 

@@ -7,30 +7,46 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Component;
 
+import com.bdd.database.schema.table.TableIdentifier;
+
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
+@Getter
 @Component
 @RequiredArgsConstructor
 public class DatabaseSchemaInitializer {
 
-	@Getter
 	private final Collection<DatabaseSchema> databaseSchemas;
-	@Getter
-	private final Map<String, DatabaseSchema> tableNameToSchema = new HashMap<>();
+	private final Map<TableIdentifier, DatabaseSchema> tableIdToSchema = new HashMap<>();
 
 	@PostConstruct
 	public void postInit() {
 		initSchemas();
 	}
 
-	public Optional<DatabaseSchema> getSchemaBy(String tableName) {
-		return Optional.ofNullable(tableNameToSchema.get(tableName))
+	public String findSchemaName(String tableName) {
+		var tableIds = tableIdToSchema.keySet().stream()
+				.filter(tableId -> tableId.tableName().equals(tableName))
+				.toList();
+
+		if (tableIds.size() > 1) {
+			throw new IllegalArgumentException("Table: [%s] is present in multiple schemas: [%s]. Please specify a schema name."
+					.formatted(tableName, tableIds.stream().map(TableIdentifier::schemaName).toList()));
+		} else if (tableIds.size() == 1) {
+			return tableIds.get(0).schemaName();
+		} else {
+			throw new IllegalArgumentException("Can't find schema name for the table: [%s].".formatted(tableName));
+		}
+	}
+
+	public Optional<DatabaseSchema> getSchemaBy(TableIdentifier tableId) {
+		return Optional.ofNullable(tableIdToSchema.get(tableId))
 				.or(() -> {
-					log.error("Could not find schema of table: {}", tableName);
+					log.error("{} not found.", tableId);
 					return Optional.empty();
 				});
 	}
@@ -40,16 +56,11 @@ public class DatabaseSchemaInitializer {
 	}
 
 	private void initSchema(DatabaseSchema schema) {
-		schema.getTablesStructures().forEach(table -> {
-			var tableName = table.getTableName();
-			var schemaName = schema.getSchemaName();
-			Optional.ofNullable(tableNameToSchema.get(tableName))
-					.filter(existed -> existed.getSchemaName().equals(schemaName))
-					.ifPresentOrElse(
-							existed -> log.error("A table named [{}] already exists in schema [{}]",
-									tableName, schemaName),
-							() -> tableNameToSchema.put(tableName, schema)
-					);
-		});
+		schema.getTablesStructures().forEach(table -> Optional.ofNullable(tableIdToSchema.get(table.getTableIdentifier()))
+				.ifPresentOrElse(
+						existed -> log.error("A table named [{}] already exists in schema [{}]",
+								table.getTableIdentifier().tableName(), table.getTableIdentifier().schemaName()),
+						() -> tableIdToSchema.put(table.getTableIdentifier(), schema)
+				));
 	}
 }

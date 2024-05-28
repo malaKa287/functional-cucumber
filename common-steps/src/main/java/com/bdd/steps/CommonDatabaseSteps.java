@@ -20,7 +20,6 @@ import com.bdd.database.connection.DatabaseConnectionProvider;
 import com.bdd.database.mapper.DatabaseTableConverter;
 import com.bdd.database.schema.DatabaseSchema;
 import com.bdd.database.schema.table.CleanupStrategyType;
-import com.bdd.database.schema.table.DefaultTableStructure;
 import com.bdd.database.schema.table.TableIdentifier;
 import com.bdd.database.schema.table.TableStructure;
 import com.bdd.database.service.DatabaseService;
@@ -63,29 +62,34 @@ public class CommonDatabaseSteps {
 
 	@Before
 	public void before() {
-		var databaseConnection = databaseConnectionProvider.getConnection();
-		tablesToCleanup.forEach(tableIdentifier -> databaseService.deleteAll(tableIdentifier, databaseConnection));
+		tablesToCleanup.forEach(tableIdentifier -> {
+			var schema = databaseService.getSchemaBy(tableIdentifier);
+			var connection = databaseConnectionProvider.getConnection(schema);
+			databaseService.deleteAll(tableIdentifier, connection.getConnection());
+		});
 	}
 
 	@Given("clear table {word}")
 	public void clearTable(String tableName) {
-		var schema = databaseService.getSchemaBy(tableName);
-		var tableIdentifier = tableIdentifier(tableName, schema.getSchemaName());
-		var databaseConnection = databaseConnectionProvider.getConnection();
+		var schemaName = databaseService.findSchemaName(tableName);
+		var tableIdentifier = tableIdentifier(schemaName, tableName);
+		var schema = databaseService.getSchemaBy(tableIdentifier);
+		var databaseConnection = databaseConnectionProvider.getConnection(schema);
 
-		databaseService.deleteAll(tableIdentifier, databaseConnection);
+		databaseService.deleteAll(tableIdentifier, databaseConnection.getConnection());
 	}
 
 	@Given("table {word} contains")
 	public void populateTable(String tableName, DataTable dataTable) {
-		var dbSchema = databaseService.getSchemaBy(tableName);
-		populateTable(tableName, dbSchema.getSchemaName(), dataTable);
+		var schemaName = databaseService.findSchemaName(tableName);
+		populateTable(schemaName, tableName, dataTable);
 	}
 
 	@Given("table {word} of schema {word} contains")
-	public void populateTable(String tableName, String schemaName, DataTable dataTable) {
-		var schema = databaseService.getSchemaBy(tableName);
-		var tableStructure = getTableStructure(tableName, schema);
+	public void populateTable(String schemaName, String tableName, DataTable dataTable) {
+		var tableId = new TableIdentifier(schemaName, tableName);
+		var schema = databaseService.getSchemaBy(tableId);
+		var tableStructure = getTableStructure(tableId, schema);
 
 		var dbColumnNames = getDbColumnNames(tableStructure.getColumns());
 		var expectedColumnNames = new HashSet<>(dataTable.row(0));
@@ -93,29 +97,31 @@ public class CommonDatabaseSteps {
 		dbValidator.validateColumnNames(tableName, expectedColumnNames, dbColumnNames);
 
 		var resolvedDataTable = wildcardService.replaceWildcards(dataTable);
-		var databaseConnection = databaseConnectionProvider.getConnection();
-		var tableIdentifier = tableIdentifier(tableName, schemaName);
+		var databaseConnection = databaseConnectionProvider.getConnection(schema);
+		var tableIdentifier = tableIdentifier(schemaName, tableName);
 
-		databaseService.insert(tableIdentifier, databaseConnection, resolvedDataTable);
+		databaseService.insert(tableIdentifier, databaseConnection.getConnection(), resolvedDataTable);
 	}
 
 	@When("insert into table {word}")
 	public void insertToTable(String tableName, DataTable dataTable) {
-		var schema = databaseService.getSchemaBy(tableName);
-		var tableIdentifier = tableIdentifier(tableName, schema.getSchemaName());
-		var databaseConnection = databaseConnectionProvider.getConnection();
+		var schemaName = databaseService.findSchemaName(tableName);
+		var tableIdentifier = tableIdentifier(schemaName, tableName);
+		var schema = databaseService.getSchemaBy(tableIdentifier);
+		var databaseConnection = databaseConnectionProvider.getConnection(schema);
 		var resolvedDataTable = wildcardService.replaceWildcards(dataTable);
 
-		databaseService.insert(tableIdentifier, databaseConnection, resolvedDataTable);
+		databaseService.insert(tableIdentifier, databaseConnection.getConnection(), resolvedDataTable);
 	}
 
 	@Then("verify table {word} is empty")
 	public void verifyTableIsEmpty(String tableName) throws DatabaseUnitException {
-		var schema = databaseService.getSchemaBy(tableName);
-		var tableIdentifier = tableIdentifier(tableName, schema.getSchemaName());
-		var databaseConnection = databaseConnectionProvider.getConnection();
+		var schemaName = databaseService.findSchemaName(tableName);
+		var tableIdentifier = tableIdentifier(schemaName, tableName);
+		var schema = databaseService.getSchemaBy(tableIdentifier);
+		var databaseConnection = databaseConnectionProvider.getConnection(schema);
 
-		var currentTable = databaseService.findAll(tableIdentifier, databaseConnection);
+		var currentTable = databaseService.findAll(tableIdentifier, databaseConnection.getConnection());
 		var expectedTable = new DefaultTable(tableName); // empty table
 
 		Assertion.assertEquals(expectedTable, currentTable);
@@ -123,22 +129,24 @@ public class CommonDatabaseSteps {
 
 	@Then("verify table {word} contains")
 	public void verifyDbTableContains(String tableName, DataTable dataTable) throws DatabaseUnitException {
-		var schema = databaseService.getSchemaBy(tableName);
-		var tableStructure = getTableStructure(tableName, schema);
+		var schemaName = databaseService.findSchemaName(tableName);
+		var tableIdentifier = tableIdentifier(schemaName, tableName);
+		var schema = databaseService.getSchemaBy(tableIdentifier);
+		var tableStructure = getTableStructure(tableIdentifier, schema);
 		var dbColumnNames = getDbColumnNames(tableStructure.getColumns());
 		var expectedColumnNames = new HashSet<>(dataTable.row(0));
 
 		dbValidator.validateColumnNames(tableName, expectedColumnNames, dbColumnNames);
 
-		var tableIdentifier = tableIdentifier(tableName, schema.getSchemaName());
 		var expectedColumns = getExpectedColumns(tableStructure, expectedColumnNames);
 		var ignoredColumnNames = getIgnoredColumnNames(tableStructure, expectedColumnNames);
 		var resolvedDataTable = wildcardService.replaceWildcards(dataTable);
 
-		var expectedTable = DefaultTableStructure.fromDataTable(tableStructure, resolvedDataTable).getTable(tableName);
+		var expectedTable = DatabaseTableConverter.fromDataTable(tableStructure, resolvedDataTable).getTable(tableName);
 		var expectedSorted = new SortedTable(expectedTable, expectedColumns, true);
 
-		var currentTable = databaseService.findAll(tableIdentifier, databaseConnectionProvider.getConnection());
+		var databaseConnection = databaseConnectionProvider.getConnection(schema);
+		var currentTable = databaseService.findAll(tableIdentifier, databaseConnection.getConnection());
 		var currentSorted = new SortedTable(currentTable, expectedColumns, true);
 
 		Assertion.assertEqualsIgnoreCols(expectedSorted, currentSorted, ignoredColumnNames);
@@ -146,12 +154,14 @@ public class CommonDatabaseSteps {
 
 	@Then("verify table {word} contains at least")
 	public void verifyDbTableContainsAtLeast(String tableName, DataTable dataTable) {
-		var schema = databaseService.getSchemaBy(tableName);
-		var tableIdentifier = tableIdentifier(tableName, schema.getSchemaName());
-		var currentContent = databaseService.findAll(tableIdentifier, databaseConnectionProvider.getConnection());
+		var schemaName = databaseService.findSchemaName(tableName);
+		var tableIdentifier = tableIdentifier(schemaName, tableName);
+		var schema = databaseService.getSchemaBy(tableIdentifier);
+		var databaseConnection = databaseConnectionProvider.getConnection(schema);
+		var currentContent = databaseService.findAll(tableIdentifier, databaseConnection.getConnection());
 
 		var expectedColumnNames = new HashSet<>(dataTable.row(0));
-		var tableStructure = getTableStructure(tableName, schema);
+		var tableStructure = getTableStructure(tableIdentifier, schema);
 		var ignoredColumnNames = getIgnoredColumnNames(tableStructure, expectedColumnNames);
 
 		var currentRows = tableConverter.asRowsMaps(currentContent);
@@ -166,15 +176,17 @@ public class CommonDatabaseSteps {
 
 	@Then("verify table {word} contains ignore columns")
 	public void verifyDbTableContainsIgnoreColumns(String tableName, DataTable dataTable) {
-		var schema = databaseService.getSchemaBy(tableName);
-		var tableIdentifier = tableIdentifier(tableName, schema.getSchemaName());
-		var currentContent = databaseService.findAll(tableIdentifier, databaseConnectionProvider.getConnection());
+		var schemaName = databaseService.findSchemaName(tableName);
+		var tableIdentifier = tableIdentifier(schemaName, tableName);
+		var schema = databaseService.getSchemaBy(tableIdentifier);
+		var databaseConnection = databaseConnectionProvider.getConnection(schema);
+		var currentContent = databaseService.findAll(tableIdentifier, databaseConnection.getConnection());
 
 		var currentRows = tableConverter.asRowsMaps(currentContent);
 		var expectedRows = wildcardService.replaceWildcards(dataTable);
 
 		var expectedColumnNames = new HashSet<>(dataTable.row(0));
-		var tableStructure = getTableStructure(tableName, schema);
+		var tableStructure = getTableStructure(tableIdentifier, schema);
 		var ignoredColumnNames = getIgnoredColumnNames(tableStructure, expectedColumnNames);
 
 		expectedRows.entries().forEach(expectedRow ->
@@ -183,14 +195,13 @@ public class CommonDatabaseSteps {
 						.isTrue());
 	}
 
-	private TableIdentifier tableIdentifier(String tableName, String schemaName) {
+	private TableIdentifier tableIdentifier(String schemaName, String tableName) {
 		return new TableIdentifier(schemaName, tableName);
 	}
 
-	private TableStructure getTableStructure(String tableName, DatabaseSchema schema) {
-		return schema.getTableStructure(tableName)
-				.orElseThrow(() -> new IllegalArgumentException(String.format("Can't find DB table structure for: [%s.%s]",
-						schema.getSchemaName(), tableName)));
+	private TableStructure getTableStructure(TableIdentifier tableIdentifier, DatabaseSchema schema) {
+		return schema.getTableStructure(tableIdentifier)
+				.orElseThrow(() -> new IllegalArgumentException("Can't find DB table structure for: [%s]".formatted(tableIdentifier)));
 	}
 
 	private Set<String> getDbColumnNames(Column[] dbColumns) {

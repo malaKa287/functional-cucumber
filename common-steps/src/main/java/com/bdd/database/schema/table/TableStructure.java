@@ -7,14 +7,7 @@ import org.dbunit.dataset.ITableMetaData;
 
 public interface TableStructure extends ITableMetaData {
 
-	/**
-	 * @param parent column being referred by the child
-	 * @param child  column targeting the parent
-	 */
-	static void registerForeignKeyConstraint(ColumnIdentifier parent, ColumnIdentifier child) {
-		parent.structure().getForeignKeys()
-				.add(new ForeignKey(parent, child));
-	}
+	void registerForeignKeyConstraint(String sourceColumnName, ColumnIdentifier dependantColumnIdentifier);
 
 	TableIdentifier getTableIdentifier();
 

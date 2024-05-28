@@ -1,4 +1,4 @@
-package com.test.config.database;
+package com.test.context.database;
 
 import java.util.Collection;
 import java.util.Map;
@@ -8,49 +8,57 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.dbunit.dataset.Column;
-import org.dbunit.dataset.ITableMetaData;
 import org.dbunit.dataset.datatype.DataType;
 import org.springframework.context.annotation.Configuration;
 
+import com.bdd.database.connection.DatabaseConnectionData;
+import com.bdd.database.connection.DriverType;
 import com.bdd.database.schema.DatabaseSchema;
 import com.bdd.database.schema.table.CleanupStrategyType;
 import com.bdd.database.schema.table.ColumnIdentifier;
 import com.bdd.database.schema.table.ConstraintActionType;
 import com.bdd.database.schema.table.DefaultTableStructure;
+import com.bdd.database.schema.table.TableIdentifier;
 import com.bdd.database.schema.table.TableStructure;
+import com.test.testcontainers.TestContainersProvider;
 
 import lombok.Getter;
 
 @Configuration
-public class DatabaseSchemaConfig implements DatabaseSchema {
+public class PostgresSchemaConfig implements DatabaseSchema {
 
 	@Getter
 	private final String schemaName;
 	@Getter
 	private final Collection<TableStructure> tablesStructures;
-	private final Map<String, TableStructure> tableNameToStructure;
+	private final Map<TableIdentifier, TableStructure> tableIdToStructure;
 
-	public DatabaseSchemaConfig() {
+	public PostgresSchemaConfig() {
 		this.schemaName = "TEST_SCHEMA";
 		this.tablesStructures = createTablesStructures();
-		this.tableNameToStructure = tablesStructures.stream()
-				.collect(Collectors.toMap(ITableMetaData::getTableName, Function.identity()));
+		this.tableIdToStructure = tablesStructures.stream()
+				.collect(Collectors.toMap(TableStructure::getTableIdentifier, Function.identity()));
 	}
 
 	@Override
-	public Optional<TableStructure> getTableStructure(String tableName) {
-		return Optional.ofNullable(tableNameToStructure.get(tableName));
+	public Optional<TableStructure> getTableStructure(TableIdentifier tableName) {
+		return Optional.ofNullable(tableIdToStructure.get(tableName));
+	}
+
+	@Override
+	public DatabaseConnectionData getConnectionData() {
+		var container = TestContainersProvider.getPostgreSQLContainer();
+		return new DatabaseConnectionData(container.getUsername(), container.getPassword(), container.getJdbcUrl(),
+				DriverType.POSTGRES, this.schemaName);
 	}
 
 	private Collection<TableStructure> createTablesStructures() {
-		var usersStructure = usersStructure();
-		var contactsStructure = contactsStructure();
+		var testUsers = usersStructure();
+		var testContacts = contactsStructure();
 
-		TableStructure.registerForeignKeyConstraint(
-				new ColumnIdentifier(usersStructure, "ID"),
-				new ColumnIdentifier(contactsStructure, "USER_ID"));
+		testUsers.registerForeignKeyConstraint("ID", new ColumnIdentifier(testContacts, "USER_ID"));
 
-		return Stream.of(usersStructure, contactsStructure)
+		return Stream.of(testUsers, testContacts)
 				.toList();
 	}
 
@@ -76,4 +84,5 @@ public class DatabaseSchemaConfig implements DatabaseSchema {
 				new Column("EMAIL", DataType.VARCHAR)
 		);
 	}
+
 }
