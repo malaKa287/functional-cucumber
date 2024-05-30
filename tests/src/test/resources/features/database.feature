@@ -72,16 +72,39 @@ Feature: verify database steps
       | 4  | ${firstName} |
 
 
-  Scenario: should update rows
+  Scenario: should update multiple rows
+    Given table TEST_USERS contains
+      | ID | FIRST_NAME  | LAST_NAME |
+      | 2  | John        | Doe       |
+      | 4  | Leon        | Noel      |
+      | 3  | Constantine |           |
+
+    Given table TEST_USERS contains after update
+      | ID | FIRST_NAME  | LAST_NAME |
+      | 2  | John        | Noel      |
+      | 4  | Leon        |           |
+      | 3  | Constantine | Doe       |
+
+    Then verify table TEST_USERS contains
+      | ID | FIRST_NAME  | LAST_NAME |
+      | 2  | John        | Noel      |
+      | 4  | Leon        |           |
+      | 3  | Constantine | Doe       |
 
 
-  Scenario: should update row using one column
-#    update test_users
-#    set row.getKey() = row.getValue() -> if another column add and ...
-#    where id = idValue
+  Scenario: should update a single row
+    Given table TEST_USERS contains
+      | ID | FIRST_NAME  | LAST_NAME |
+      | 2  | John        | Doe       |
+      | 3  | Constantine |           |
 
+    Given table TEST_USERS contains after update
+      | ID | FIRST_NAME | LAST_NAME |
+      | 2  | John       | J         |
 
-  Scenario: should populate table with provided data
+    Then verify table TEST_USERS contains at least
+      | ID | FIRST_NAME | LAST_NAME |
+      | 2  | John       | J         |
 
 
   Scenario: should remove rows cascaded using foreign key

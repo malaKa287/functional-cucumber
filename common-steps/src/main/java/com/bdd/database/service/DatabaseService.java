@@ -52,16 +52,19 @@ public class DatabaseService {
 		return result;
 	}
 
-	public void deleteAll(TableIdentifier tableId, IDatabaseConnection connection) {
-		var tableStructure = getTableStructure(tableId);
+	public void deleteAll(TableStructure tableStructure, IDatabaseConnection connection) {
 		var dataSet = DatabaseTableConverter.fromDataTable(tableStructure, DataTable.emptyDataTable());
 		execute(DatabaseOperation.DELETE_ALL, connection, dataSet);
 	}
 
-	public void insert(TableIdentifier tableId, IDatabaseConnection connection, DataTable dataTable) {
-		var tableStructure = getTableStructure(tableId);
+	public void insert(TableStructure tableStructure, IDatabaseConnection connection, DataTable dataTable) {
 		var dataSet = DatabaseTableConverter.fromDataTable(tableStructure, dataTable);
 		execute(DatabaseOperation.INSERT, connection, dataSet);
+	}
+
+	public void update(TableStructure tableStructure, IDatabaseConnection connection, DataTable dataTable) {
+		var dataSet = DatabaseTableConverter.fromDataTable(tableStructure, dataTable);
+		execute(DatabaseOperation.UPDATE, connection, dataSet);
 	}
 
 	public ITable findAll(TableIdentifier tableIdentifier, IDatabaseConnection connection) {
