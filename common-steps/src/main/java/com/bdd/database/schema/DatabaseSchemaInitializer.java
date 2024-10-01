@@ -37,7 +37,7 @@ public class DatabaseSchemaInitializer {
 			throw new IllegalArgumentException("Table: [%s] is present in multiple schemas: [%s]. Please specify a schema name."
 					.formatted(tableName, tableIds.stream().map(TableIdentifier::schemaName).toList()));
 		} else if (tableIds.size() == 1) {
-			return tableIds.get(0).schemaName();
+			return tableIds.getFirst().schemaName();
 		} else {
 			throw new IllegalArgumentException("Can't find schema name for the table: [%s].".formatted(tableName));
 		}
@@ -46,7 +46,7 @@ public class DatabaseSchemaInitializer {
 	public Optional<DatabaseSchema> getSchemaBy(TableIdentifier tableId) {
 		return Optional.ofNullable(tableIdToSchema.get(tableId))
 				.or(() -> {
-					log.error("{} not found.", tableId);
+					log.error("Table: [{}] not found.", tableId);
 					return Optional.empty();
 				});
 	}

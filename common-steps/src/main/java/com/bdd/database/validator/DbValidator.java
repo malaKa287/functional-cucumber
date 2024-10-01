@@ -14,7 +14,7 @@ public class DbValidator {
 				.collect(Collectors.toSet());
 
 		if (!notMappedColumns.isEmpty()) {
-			throw new IllegalArgumentException("Unable to define appropriate columns for table: [%s]. Unmapped columns: %s"
+			throw new IllegalArgumentException("Unable to define appropriate columns for table: [%s]. Columns not found: %s"
 					.formatted(tableName, notMappedColumns));
 		}
 	}

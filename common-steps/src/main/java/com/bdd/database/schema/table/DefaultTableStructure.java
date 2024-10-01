@@ -32,7 +32,7 @@ public class DefaultTableStructure implements TableStructure {
 		this.tableIdentifier = new TableIdentifier(schemaName, tableName);
 		this.columns = Stream.of(columns).toList();
 		this.columnNameToIndex = new HashMap<>();
-		this.primaryKeys = List.of(this.columns.get(0).getColumnName());
+		this.primaryKeys = List.of(this.columns.getFirst().getColumnName());
 		this.foreignKeys = new ArrayList<>();
 		this.cleanupStrategyType = cleanupStrategyType;
 		this.constraintActionType = constraintActionType;
