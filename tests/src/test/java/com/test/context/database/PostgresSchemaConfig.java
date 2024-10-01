@@ -10,6 +10,7 @@ import java.util.stream.Stream;
 import org.dbunit.dataset.Column;
 import org.dbunit.dataset.datatype.DataType;
 import org.springframework.context.annotation.Configuration;
+import org.testcontainers.containers.PostgreSQLContainer;
 
 import com.bdd.database.connection.DatabaseConnectionData;
 import com.bdd.database.connection.DriverType;
@@ -20,7 +21,6 @@ import com.bdd.database.schema.table.ConstraintActionType;
 import com.bdd.database.schema.table.DefaultTableStructure;
 import com.bdd.database.schema.table.TableIdentifier;
 import com.bdd.database.schema.table.TableStructure;
-import com.test.testcontainers.TestContainersProvider;
 
 import lombok.Getter;
 
@@ -32,12 +32,14 @@ public class PostgresSchemaConfig implements DatabaseSchema {
 	@Getter
 	private final Collection<TableStructure> tablesStructures;
 	private final Map<TableIdentifier, TableStructure> tableIdToStructure;
+	private final PostgreSQLContainer<?> container;
 
-	public PostgresSchemaConfig() {
+	public PostgresSchemaConfig(PostgreSQLContainer<?> container) {
 		this.schemaName = "TEST_SCHEMA";
 		this.tablesStructures = createTablesStructures();
 		this.tableIdToStructure = tablesStructures.stream()
 				.collect(Collectors.toMap(TableStructure::getTableIdentifier, Function.identity()));
+		this.container = container;
 	}
 
 	@Override
@@ -47,7 +49,6 @@ public class PostgresSchemaConfig implements DatabaseSchema {
 
 	@Override
 	public DatabaseConnectionData getConnectionData() {
-		var container = TestContainersProvider.getPostgreSQLContainer();
 		return new DatabaseConnectionData(container.getUsername(), container.getPassword(), container.getJdbcUrl(),
 				DriverType.POSTGRES, this.schemaName);
 	}
