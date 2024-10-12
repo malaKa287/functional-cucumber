@@ -15,6 +15,7 @@
 
 		<spring-boot.version>3.3.4</spring-boot.version>
 		<lombok.version>1.18.34</lombok.version>
+		<jackson-databind.version>2.18.0</jackson-databind.version>
 		<slf4j.version>2.0.9</slf4j.version>
 		<cucumber.version>7.13.0</cucumber.version>
 
@@ -24,6 +25,8 @@
 		<junit-platform-launcher.version>1.9.3</junit-platform-launcher.version>
 		<junit-jupiter.version>5.9.3</junit-jupiter.version>
 		<assertj.version>3.24.2</assertj.version>
+		<awaitility.version>4.2.2</awaitility.version>
+		<json-unit.version>3.4.1</json-unit.version>
 		<dbunit.version>2.7.3</dbunit.version>
 
 		<maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>

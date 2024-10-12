@@ -5,19 +5,28 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import io.cucumber.datatable.DataTable;
-import io.cucumber.java.After;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 @Getter
+@Service
+@RequiredArgsConstructor
 public class WildcardService {
 
 	public static final Pattern WILDCARD_PATTERN = Pattern.compile("\\$\\{(.*?)}");
 
+	private final ObjectMapper objectMapper;
+
 	private final Map<String, String> wildcards = new HashMap<>();
 
-	@After
-	public void cleanup() {
+	public void clear() {
 		wildcards.clear();
 	}
 
@@ -27,6 +36,22 @@ public class WildcardService {
 
 	public String getFor(String key) {
 		return wildcards.get(key);
+	}
+
+	public String replaceWildcards(String input) {
+		return applyWildcards(input);
+	}
+
+	public JsonNode replaceWildcards(JsonNode input) {
+		try {
+			var jsonString = objectMapper.writeValueAsString(input);
+			var resolvedString = applyWildcards(jsonString);
+			return objectMapper.readTree(resolvedString);
+		}
+		catch (JsonProcessingException e) {
+			throw new IllegalArgumentException("Error replacing wildcards in JSON. Please check the structure.\n%s"
+					.formatted(input), e);
+		}
 	}
 
 	public DataTable replaceWildcards(DataTable dataTable) {

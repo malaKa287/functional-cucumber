@@ -39,7 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Getter
 @RequiredArgsConstructor
-public class CommonDatabaseSteps {
+public class CommonDatabaseSteps extends CommonSteps {
 
 	private final DatabaseConnectionProvider databaseConnectionProvider;
 	private final DatabaseService databaseService;
@@ -135,10 +135,11 @@ public class CommonDatabaseSteps {
 		var schemaInfo = new SchemaInfo(tableName);
 		var databaseConnection = databaseConnectionProvider.getConnection(schemaInfo.getSchema());
 
-		var currentTable = databaseService.findAll(schemaInfo.getIdentifier(), databaseConnection.getConnection());
 		var expectedTable = new DefaultTable(tableName); // empty table
-
-		Assertion.assertEquals(expectedTable, currentTable);
+		verifyAssertion(() -> {
+			var currentTable = databaseService.findAll(schemaInfo.getIdentifier(), databaseConnection.getConnection());
+			Assertion.assertEquals(expectedTable, currentTable);
+		});
 	}
 
 	@Then("verify table {word} contains")
@@ -158,10 +159,11 @@ public class CommonDatabaseSteps {
 		var expectedSorted = new SortedTable(expectedTable, expectedColumns, true);
 
 		var databaseConnection = databaseConnectionProvider.getConnection(schemaInfo.getSchema());
-		var currentTable = databaseService.findAll(schemaInfo.getIdentifier(), databaseConnection.getConnection());
-		var currentSorted = new SortedTable(currentTable, expectedColumns, true);
-
-		Assertion.assertEqualsIgnoreCols(expectedSorted, currentSorted, ignoredColumnNames);
+		verifyAssertion(() -> {
+			var currentTable = databaseService.findAll(schemaInfo.getIdentifier(), databaseConnection.getConnection());
+			var currentSorted = new SortedTable(currentTable, expectedColumns, true);
+			Assertion.assertEqualsIgnoreCols(expectedSorted, currentSorted, ignoredColumnNames);
+		});
 	}
 
 	@Then("verify table {word} contains at least")
@@ -170,21 +172,21 @@ public class CommonDatabaseSteps {
 		var tableStructure = getTableStructure(schemaInfo.getIdentifier(), schemaInfo.getSchema());
 
 		validateColumnsNames(tableStructure, dataTable);
-
-		var databaseConnection = databaseConnectionProvider.getConnection(schemaInfo.getSchema());
-		var currentContent = databaseService.findAll(schemaInfo.getIdentifier(), databaseConnection.getConnection());
-
 		var expectedColumnNames = new HashSet<>(dataTable.row(0));
 		var ignoredColumnNames = getIgnoredColumnNames(tableStructure, expectedColumnNames);
 
-		var currentRows = tableConverter.asRowsMaps(currentContent);
-		var expectedRows = wildcardService.replaceWildcards(dataTable).entries();
-		var matchedRows = findEqualsRows(currentRows, expectedRows, ignoredColumnNames);
+		var databaseConnection = databaseConnectionProvider.getConnection(schemaInfo.getSchema());
+		verifyAssertion(() -> {
+			var currentContent = databaseService.findAll(schemaInfo.getIdentifier(), databaseConnection.getConnection());
+			var currentRows = tableConverter.asRowsMaps(currentContent);
+			var expectedRows = wildcardService.replaceWildcards(dataTable).entries();
+			var matchedRows = findEqualsRows(currentRows, expectedRows, ignoredColumnNames);
 
-		Assertions.assertThat(matchedRows.size())
-				.withFailMessage("Expected [%s] matched rows but was [%s]. Can't find: [%s].",
-						expectedRows.size(), matchedRows.size(), retainNotMatched(expectedRows, currentRows))
-				.isEqualTo(expectedRows.size());
+			Assertions.assertThat(matchedRows.size())
+					.withFailMessage("Expected [%s] matched rows but was [%s]. Can't find: [%s].",
+							expectedRows.size(), matchedRows.size(), retainNotMatched(expectedRows, currentRows))
+					.isEqualTo(expectedRows.size());
+		});
 	}
 
 	@Then("verify table {word} contains ignore columns")
@@ -193,19 +195,21 @@ public class CommonDatabaseSteps {
 		var tableStructure = getTableStructure(schemaInfo.getIdentifier(), schemaInfo.getSchema());
 
 		validateColumnsNames(tableStructure, dataTable);
-
-		var databaseConnection = databaseConnectionProvider.getConnection(schemaInfo.getSchema());
-		var currentContent = databaseService.findAll(schemaInfo.getIdentifier(), databaseConnection.getConnection());
-
-		var currentRows = tableConverter.asRowsMaps(currentContent);
 		var expectedRows = wildcardService.replaceWildcards(dataTable);
 
 		var expectedColumnNames = new HashSet<>(dataTable.row(0));
 		var ignoredColumnNames = getIgnoredColumnNames(tableStructure, expectedColumnNames);
-		expectedRows.entries().forEach(expectedRow ->
-				Assertions.assertThat(containsIgnoreColumns(currentRows, expectedRow, ignoredColumnNames))
-						.withFailMessage("Can't find row: " + expectedRow)
-						.isTrue());
+
+		var databaseConnection = databaseConnectionProvider.getConnection(schemaInfo.getSchema());
+		verifyAssertion(() -> {
+			var currentContent = databaseService.findAll(schemaInfo.getIdentifier(), databaseConnection.getConnection());
+			var currentRows = tableConverter.asRowsMaps(currentContent);
+
+			expectedRows.entries().forEach(expectedRow ->
+					Assertions.assertThat(containsIgnoreColumns(currentRows, expectedRow, ignoredColumnNames))
+							.withFailMessage("Can't find row: " + expectedRow)
+							.isTrue());
+		});
 	}
 
 	private void validateColumnsNames(TableStructure tableStructure, DataTable dataTable) {

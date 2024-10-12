@@ -4,6 +4,7 @@ import java.sql.DriverManager;
 
 import org.dbunit.AbstractDatabaseTester;
 import org.dbunit.database.DatabaseConfig;
+import org.dbunit.database.DatabaseConnection;
 import org.dbunit.database.IDatabaseConnection;
 import org.dbunit.ext.mssql.MsSqlDataTypeFactory;
 import org.dbunit.ext.mysql.MySqlDataTypeFactory;
@@ -12,14 +13,14 @@ import org.dbunit.ext.postgresql.PostgresqlDataTypeFactory;
 
 import lombok.NonNull;
 
-public class DatabaseConnection extends AbstractDatabaseTester {
+public class DatabaseConnector extends AbstractDatabaseTester {
 
 	private final String username;
 	private final String password;
 	private final String connectionUrl;
 	private final DriverType driverType;
 
-	public DatabaseConnection(String schema, String username, String password, @NonNull String connectionUrl, DriverType driverType) {
+	public DatabaseConnector(String schema, String username, String password, @NonNull String connectionUrl, DriverType driverType) {
 		super(schema);
 		this.username = username;
 		this.password = password;
@@ -33,7 +34,7 @@ public class DatabaseConnection extends AbstractDatabaseTester {
 			var dbConnection = username == null && password == null
 					? DriverManager.getConnection(connectionUrl)
 					: DriverManager.getConnection(connectionUrl, username, password);
-			var connection = new org.dbunit.database.DatabaseConnection(dbConnection, getSchema());
+			var connection = new DatabaseConnection(dbConnection, getSchema());
 
 			enrichWithDatatypeFactory(driverType, connection);
 			return connection;
