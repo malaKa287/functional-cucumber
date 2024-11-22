@@ -20,15 +20,16 @@ public record JsonRequestPayload(JsonNode jsonRequest) {
 	}
 
 	public Optional<String> getBody() {
-		return extractTextField("body");
+		return Optional.ofNullable(body())
+				.map(JsonNode::toString);
 	}
 
 	public Optional<String> getUsername() {
-		return extractTextField("username");
+		return extractFromMetadata("username");
 	}
 
 	public Optional<String> getPassword() {
-		return extractTextField("password");
+		return extractFromMetadata("password");
 	}
 
 	public MultiValueMap<String, String> getHeaders() {
@@ -46,16 +47,24 @@ public record JsonRequestPayload(JsonNode jsonRequest) {
 		}
 	}
 
-	private Optional<String> extractTextField(String fieldName) {
-		return Optional.ofNullable(jsonRequest.get(fieldName))
+	private JsonNode requestMetadata() {
+		return jsonRequest.get("requestMetadata");
+	}
+
+	private JsonNode body() {
+		return jsonRequest.get("body");
+	}
+
+	private Optional<String> extractFromMetadata(String fieldName) {
+		return Optional.ofNullable(requestMetadata())
+				.map(metadata -> metadata.get(fieldName))
 				.map(JsonNode::toString);
 	}
 
 	private MultiValueMap<String, String> extractHeaders() {
 		MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
-		var requestMetadata = jsonRequest.get("requestMetadata");
-		if (requestMetadata != null) {
-			var headersNode = requestMetadata.get("headers");
+		if (requestMetadata() != null) {
+			var headersNode = requestMetadata().get("headers");
 			if (headersNode != null) {
 				headersNode.fields().forEachRemaining(header ->
 						headers.add(header.getKey(), header.getValue().asText())
